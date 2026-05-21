@@ -30,3 +30,4 @@ npm run build
 项目使用 `base: './'`，构建产物是纯静态文件，可以发布到 GitHub Pages。推送到 `main` 后，仓库开启 Pages 并选择 GitHub Actions 即可使用内置工作流部署。
 
 注意：任务数据只保存在访问该页面的当前浏览器中，清除浏览器数据会删除任务。
+# kanban-board
