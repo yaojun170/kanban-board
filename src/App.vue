@@ -403,23 +403,25 @@ function formatDate(dateKey: string) {
           </div>
 
           <div class="week-list">
-            <div v-for="group in store.weekGroups" :key="group.date" class="week-day">
+            <div v-for="group in store.weekGroups" :key="group.date" class="week-day" data-test="week-day-row">
               <div class="week-day-header">
                 <strong>{{ group.label }}</strong>
                 <span>{{ formatDate(group.date) }}</span>
               </div>
-              <button
-                v-for="task in group.tasks"
-                :key="task.id"
-                type="button"
-                class="week-task"
-                :class="taskTone(task)"
-                @click="store.selectTask(task.id)"
-              >
-                <span>{{ task.title }}</span>
-                <small>{{ priorityLabels[task.priority] }}</small>
-              </button>
-              <p v-if="!group.tasks.length" class="empty-note">无安排</p>
+              <div class="week-day-tasks" data-test="week-day-tasks">
+                <button
+                  v-for="task in group.tasks"
+                  :key="task.id"
+                  type="button"
+                  class="week-task"
+                  :class="taskTone(task)"
+                  @click="store.selectTask(task.id)"
+                >
+                  <span>{{ task.title }}</span>
+                  <small>{{ priorityLabels[task.priority] }}</small>
+                </button>
+                <p v-if="!group.tasks.length" class="empty-note">无安排</p>
+              </div>
             </div>
           </div>
         </section>

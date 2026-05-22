@@ -55,4 +55,23 @@ describe('App workbench', () => {
     });
     expect(wrapper.text()).toContain('明天跟进设计');
   });
+
+  it('renders week plan days as readable rows with a task area', async () => {
+    const wrapper = mount(App, {
+      global: {
+        plugins: [createPinia()]
+      }
+    });
+
+    await wrapper.get('[data-test="quick-title"]').setValue('周计划任务标题');
+    await wrapper.get('[data-test="quick-add"]').trigger('submit');
+
+    const weekRows = wrapper.findAll('[data-test="week-day-row"]');
+
+    expect(weekRows).toHaveLength(7);
+    expect(weekRows[3].text()).toContain('周四');
+    expect(weekRows[3].text()).toContain('5月21日');
+    expect(weekRows[3].find('[data-test="week-day-tasks"]').exists()).toBe(true);
+    expect(weekRows[3].find('.week-task').text()).toContain('周计划任务标题');
+  });
 });

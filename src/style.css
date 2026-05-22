@@ -341,12 +341,16 @@ textarea {
 
 .week-list {
   display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-template-columns: 1fr;
   gap: 8px;
 }
 
 .week-day {
-  min-height: 150px;
+  display: grid;
+  grid-template-columns: 86px minmax(0, 1fr);
+  gap: 10px;
+  min-height: 72px;
+  align-items: start;
   border: 1px solid #e1e9f0;
   border-radius: 8px;
   background: #fbfdff;
@@ -355,11 +359,23 @@ textarea {
 
 .week-day-header {
   display: flex;
-  justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 8px;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 0;
   color: #41536a;
   font-size: 13px;
+}
+
+.week-day-header strong,
+.week-day-header span {
+  white-space: nowrap;
+}
+
+.week-day-tasks {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 7px;
 }
 
 .week-task {
@@ -368,13 +384,21 @@ textarea {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  margin-bottom: 7px;
   border: 1px solid #dbe5ed;
   border-radius: 8px;
   background: #ffffff;
   padding: 8px;
   color: #253449;
   text-align: left;
+}
+
+.week-task small {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: #edf4fa;
+  color: #526275;
+  padding: 3px 8px;
+  font-weight: 700;
 }
 
 .week-task span {
@@ -464,7 +488,7 @@ textarea {
   }
 
   .week-list {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: 1fr;
   }
 }
 
@@ -492,5 +516,14 @@ textarea {
 
   .week-list {
     grid-template-columns: 1fr;
+  }
+
+  .week-day {
+    grid-template-columns: 1fr;
+  }
+
+  .week-day-header {
+    flex-direction: row;
+    justify-content: space-between;
   }
 }
