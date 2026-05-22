@@ -10,6 +10,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.106.1",
     "@vitejs/plugin-vue": "^5.2.4",
     "pinia": "^2.3.1",
     "vue": "^3.5.13"

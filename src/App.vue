@@ -2,6 +2,7 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { addDays, getTaskTiming } from './domain/taskLogic';
 import type { Task, TaskPriority, TaskRepeat, TaskStatus } from './domain/types';
+import { isSupabaseConfigured, supabase } from './services/supabaseClient';
 import { useTaskStore } from './stores/taskStore';
 
 const store = useTaskStore();
@@ -53,6 +54,11 @@ const activeView = ref<'workbench' | 'kanban'>('workbench');
 const draggedTaskId = ref<string | null>(null);
 const selectedDate = ref(store.today);
 const selectedDateMode = ref<'single' | 'nextWeek'>('single');
+const authEmail = ref('');
+const authMessage = ref('');
+const authLoading = ref(false);
+const authReady = ref(!isSupabaseConfigured);
+const isSignedIn = ref(!isSupabaseConfigured);
 
 const statusOptions: TaskStatus[] = ['todo', 'doing', 'done'];
 const priorityOptions: TaskPriority[] = ['high', 'medium', 'low'];
@@ -101,9 +107,32 @@ const visibleKanbanColumns = computed(() =>
 );
 
 onMounted(() => {
-  store.loadTasks();
   selectedDate.value = store.today;
   quickTask.plannedDate = store.today;
+
+  if (!supabase) {
+    void store.loadTasks();
+    return;
+  }
+
+  supabase.auth.getSession().then(({ data }) => {
+    isSignedIn.value = Boolean(data.session);
+    authReady.value = true;
+    if (data.session) {
+      void store.loadTasks();
+    }
+  });
+
+  supabase.auth.onAuthStateChange((_event, session) => {
+    isSignedIn.value = Boolean(session);
+    authReady.value = true;
+    if (session) {
+      void store.loadTasks();
+    } else {
+      store.tasks = [];
+      store.selectTask(null);
+    }
+  });
 });
 
 watch(
@@ -183,6 +212,33 @@ function selectNextWeek() {
   selectedDateMode.value = 'nextWeek';
   selectedDate.value = nextWeekStart.value;
   quickTask.plannedDate = nextWeekStart.value;
+}
+
+async function sendMagicLink() {
+  if (!supabase || !authEmail.value.trim()) {
+    return;
+  }
+
+  authLoading.value = true;
+  authMessage.value = '';
+
+  const { error } = await supabase.auth.signInWithOtp({
+    email: authEmail.value.trim(),
+    options: {
+      emailRedirectTo: window.location.href
+    }
+  });
+
+  authLoading.value = false;
+  authMessage.value = error ? error.message : '登录链接已发送，请检查邮箱。';
+}
+
+async function signOut() {
+  if (!supabase) {
+    return;
+  }
+
+  await supabase.auth.signOut();
 }
 
 function complete(task: Task) {
@@ -267,20 +323,36 @@ function getWeekStart(dateKey: string) {
   <div class="app-shell">
     <header class="topbar">
       <div>
-        <p class="eyebrow">本机保存 · GitHub Pages 可部署</p>
+        <p class="eyebrow">{{ isSupabaseConfigured ? 'Supabase 数据库保存 · GitHub Pages 可部署' : '本机保存 · GitHub Pages 可部署' }}</p>
         <h1>Todo 时间工作台</h1>
       </div>
-      <nav class="view-switch" aria-label="视图切换">
+      <nav v-if="isSignedIn" class="view-switch" aria-label="视图切换">
         <button :class="{ active: activeView === 'workbench' }" type="button" @click="activeView = 'workbench'">
           工作台
         </button>
         <button :class="{ active: activeView === 'kanban' }" type="button" @click="activeView = 'kanban'">
           看板
         </button>
+        <button v-if="isSupabaseConfigured" type="button" @click="signOut">退出</button>
       </nav>
     </header>
 
-    <main v-if="activeView === 'workbench'" class="workbench-grid">
+    <main v-if="!authReady" class="auth-panel panel">
+      <p class="section-label">连接中</p>
+      <h2>正在检查登录状态</h2>
+    </main>
+
+    <main v-else-if="!isSignedIn" class="auth-panel panel">
+      <p class="section-label">Supabase 登录</p>
+      <h2>登录后保存你的任务数据</h2>
+      <form class="auth-form" @submit.prevent="sendMagicLink">
+        <input v-model="authEmail" type="email" placeholder="输入邮箱获取登录链接" aria-label="邮箱" />
+        <button type="submit" :disabled="authLoading">{{ authLoading ? '发送中' : '发送登录链接' }}</button>
+      </form>
+      <p v-if="authMessage" class="empty-note">{{ authMessage }}</p>
+    </main>
+
+    <main v-else-if="activeView === 'workbench'" class="workbench-grid">
       <aside class="sidebar panel">
         <section>
           <p class="section-label">日期入口</p>

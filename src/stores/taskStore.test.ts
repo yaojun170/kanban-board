@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createPinia, setActivePinia } from 'pinia';
-import { useTaskStore } from './taskStore';
+import { resetTaskRepositoryForTests, setTaskRepositoryForTests, useTaskStore } from './taskStore';
+import type { Task } from '../domain/types';
 
 describe('task store persistence', () => {
   beforeEach(() => {
@@ -8,6 +9,7 @@ describe('task store persistence', () => {
     setActivePinia(createPinia());
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-05-21T08:00:00.000Z'));
+    resetTaskRepositoryForTests();
   });
 
   it('adds a task and persists it to localStorage', () => {
@@ -22,7 +24,7 @@ describe('task store persistence', () => {
     ]);
   });
 
-  it('restores saved tasks on demand', () => {
+  it('restores saved tasks on demand', async () => {
     localStorage.setItem(
       'todo-time-workbench:tasks',
       JSON.stringify([
@@ -43,7 +45,7 @@ describe('task store persistence', () => {
     );
 
     const store = useTaskStore();
-    store.loadTasks();
+    await store.loadTasks();
 
     expect(store.tasks).toHaveLength(1);
     expect(store.tasks[0]).toMatchObject({ id: 'saved', title: '保存的任务', status: 'doing' });
@@ -68,4 +70,58 @@ describe('task store persistence', () => {
     });
     expect(JSON.parse(localStorage.getItem('todo-time-workbench:tasks') ?? '[]')).toHaveLength(2);
   });
+
+  it('loads and saves tasks through a configured remote repository', async () => {
+    const remoteTask = taskFactory({ id: 'remote', title: '远程任务' });
+    const repository = {
+      loadTasks: vi.fn().mockResolvedValue([remoteTask]),
+      saveTasks: vi.fn().mockResolvedValue(undefined),
+      deleteTask: vi.fn().mockResolvedValue(undefined)
+    };
+    setTaskRepositoryForTests(repository);
+
+    const store = useTaskStore();
+    await store.loadTasks();
+    const task = store.addTask({ title: '同步任务' });
+
+    expect(store.tasks[0]).toMatchObject({ title: '同步任务' });
+    expect(repository.loadTasks).toHaveBeenCalled();
+    expect(repository.saveTasks).toHaveBeenCalledWith([expect.objectContaining({ id: task.id })]);
+    expect(localStorage.getItem('todo-time-workbench:tasks')).toBeNull();
+  });
+
+  it('does not migrate existing local tasks when remote storage is empty', async () => {
+    const localTask = taskFactory({ id: 'local-old', title: '本地旧任务' });
+    localStorage.setItem('todo-time-workbench:tasks', JSON.stringify([localTask]));
+    const repository = {
+      loadTasks: vi.fn().mockResolvedValue([]),
+      saveTasks: vi.fn().mockResolvedValue(undefined),
+      deleteTask: vi.fn().mockResolvedValue(undefined)
+    };
+    setTaskRepositoryForTests(repository);
+
+    const store = useTaskStore();
+    await store.loadTasks();
+
+    expect(store.tasks).toEqual([]);
+    expect(repository.saveTasks).not.toHaveBeenCalled();
+    expect(JSON.parse(localStorage.getItem('todo-time-workbench:tasks') ?? '[]')).toEqual([localTask]);
+  });
 });
+
+function taskFactory(overrides: Partial<Task> = {}): Task {
+  return {
+    id: 'task-id',
+    title: '测试任务',
+    status: 'todo',
+    plannedDate: '2026-05-21',
+    dueDate: null,
+    priority: 'medium',
+    tags: [],
+    notes: '',
+    repeat: 'none',
+    createdAt: '2026-05-21T00:00:00.000Z',
+    completedAt: null,
+    ...overrides
+  };
+}

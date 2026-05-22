@@ -161,8 +161,29 @@ h2 {
 .task-section,
 .right-column .panel,
 .kanban-column,
-.completed-strip {
+.completed-strip,
+.auth-panel {
   padding: 16px;
+}
+
+.auth-panel {
+  max-width: 520px;
+}
+
+.auth-form {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  margin: 16px 0 10px;
+}
+
+.auth-form button {
+  border: 0;
+  border-radius: 8px;
+  background: #246fbd;
+  color: #ffffff;
+  padding: 0 18px;
+  font-weight: 700;
 }
 
 .quick-row {
@@ -512,6 +533,7 @@ textarea {
 
   .topbar,
   .quick-row,
+  .auth-form,
   .advanced-fields,
   .detail-grid {
     grid-template-columns: 1fr;
