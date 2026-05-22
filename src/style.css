@@ -408,6 +408,18 @@ textarea {
   white-space: nowrap;
 }
 
+.selected-range-list .week-day {
+  min-height: 82px;
+}
+
+.selected-range-task {
+  box-shadow: none;
+}
+
+.selected-range-task .task-main {
+  padding-right: 64px;
+}
+
 .detail-form,
 .detail-form label {
   display: flex;

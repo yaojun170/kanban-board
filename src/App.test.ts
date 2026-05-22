@@ -74,4 +74,33 @@ describe('App workbench', () => {
     expect(weekRows[3].find('[data-test="week-day-tasks"]').exists()).toBe(true);
     expect(weekRows[3].find('.week-task').text()).toContain('周计划任务标题');
   });
+
+  it('switches next week entry to a seven-day range', async () => {
+    const wrapper = mount(App, {
+      global: {
+        plugins: [createPinia()]
+      }
+    });
+
+    const nextWeekButton = wrapper.findAll('button').find((button) => button.text().includes('下周'));
+
+    expect(nextWeekButton).toBeTruthy();
+    await nextWeekButton!.trigger('click');
+
+    expect((wrapper.get('[data-test="quick-planned-date"]').element as HTMLInputElement).value).toBe('2026-05-25');
+    expect(wrapper.text()).toContain('下周计划');
+    expect(wrapper.text()).toContain('5月25日');
+    expect(wrapper.text()).toContain('5月31日');
+    expect(wrapper.findAll('[data-test="selected-range-day-row"]')).toHaveLength(7);
+
+    await wrapper.get('[data-test="quick-title"]').setValue('下周一计划');
+    await wrapper.get('[data-test="quick-add"]').trigger('submit');
+
+    const savedTasks = JSON.parse(localStorage.getItem('todo-time-workbench:tasks') ?? '[]');
+    expect(savedTasks[0]).toMatchObject({
+      title: '下周一计划',
+      plannedDate: '2026-05-25'
+    });
+    expect(wrapper.findAll('[data-test="selected-range-day-row"]')[0].text()).toContain('下周一计划');
+  });
 });

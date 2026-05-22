@@ -24,6 +24,8 @@ const repeatLabels: Record<TaskRepeat, string> = {
   weekly: '每周'
 };
 
+const weekdayLabels = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
+
 const quickTask = reactive({
   title: '',
   plannedDate: '',
@@ -50,16 +52,45 @@ const showCompleted = ref(false);
 const activeView = ref<'workbench' | 'kanban'>('workbench');
 const draggedTaskId = ref<string | null>(null);
 const selectedDate = ref(store.today);
+const selectedDateMode = ref<'single' | 'nextWeek'>('single');
 
 const statusOptions: TaskStatus[] = ['todo', 'doing', 'done'];
 const priorityOptions: TaskPriority[] = ['high', 'medium', 'low'];
 const repeatOptions: TaskRepeat[] = ['none', 'daily', 'weekly'];
 
 const todayLabel = computed(() => formatDate(store.today));
-const selectedDateLabel = computed(() => formatDate(selectedDate.value || store.today));
-const selectedDateSectionLabel = computed(() => (selectedDate.value === store.today ? '今日任务' : '计划日期'));
+const nextWeekStart = computed(() => addDays(getWeekStart(store.today), 7));
+const nextWeekEnd = computed(() => addDays(nextWeekStart.value, 6));
+const selectedDateLabel = computed(() =>
+  selectedDateMode.value === 'nextWeek'
+    ? `${formatDate(nextWeekStart.value)} - ${formatDate(nextWeekEnd.value)}`
+    : formatDate(selectedDate.value || store.today)
+);
+const selectedDateSectionLabel = computed(() => {
+  if (selectedDateMode.value === 'nextWeek') {
+    return '下周计划';
+  }
+
+  return selectedDate.value === store.today ? '今日任务' : '计划日期';
+});
 const selectedDateTasks = computed(() =>
   store.activeTasks.filter((task) => task.plannedDate === selectedDate.value)
+);
+const selectedRangeGroups = computed(() =>
+  Array.from({ length: 7 }, (_, index) => {
+    const date = addDays(nextWeekStart.value, index);
+
+    return {
+      date,
+      label: weekdayLabels[index],
+      tasks: store.activeTasks.filter((task) => task.plannedDate === date)
+    };
+  })
+);
+const selectedTaskCount = computed(() =>
+  selectedDateMode.value === 'nextWeek'
+    ? selectedRangeGroups.value.reduce((total, group) => total + group.tasks.length, 0)
+    : selectedDateTasks.value.length
 );
 const visibleKanbanColumns = computed(() =>
   statusOptions.map((status) => ({
@@ -143,8 +174,15 @@ function saveDetail() {
 }
 
 function selectDate(offset: number) {
+  selectedDateMode.value = 'single';
   selectedDate.value = addDays(store.today, offset);
   quickTask.plannedDate = selectedDate.value;
+}
+
+function selectNextWeek() {
+  selectedDateMode.value = 'nextWeek';
+  selectedDate.value = nextWeekStart.value;
+  quickTask.plannedDate = nextWeekStart.value;
 }
 
 function complete(task: Task) {
@@ -216,6 +254,13 @@ function formatDate(dateKey: string) {
     day: 'numeric'
   }).format(new Date(`${dateKey}T00:00:00`));
 }
+
+function getWeekStart(dateKey: string) {
+  const date = new Date(`${dateKey}T00:00:00.000Z`);
+  const day = date.getUTCDay();
+  const offset = day === 0 ? -6 : 1 - day;
+  return addDays(dateKey, offset);
+}
 </script>
 
 <template>
@@ -253,13 +298,13 @@ function formatDate(dateKey: string) {
             <span>{{ formatDate(addDays(store.today, 1)) }}</span>
           </button>
           <button
-            :class="{ active: selectedDate === addDays(store.today, 7) }"
+            :class="{ active: selectedDateMode === 'nextWeek' }"
             class="date-tile"
             type="button"
-            @click="selectDate(7)"
+            @click="selectNextWeek"
           >
             <strong>下周</strong>
-            <span>{{ formatDate(addDays(store.today, 7)) }}</span>
+            <span>{{ formatDate(nextWeekStart) }} - {{ formatDate(nextWeekEnd) }}</span>
           </button>
         </section>
 
@@ -338,10 +383,49 @@ function formatDate(dateKey: string) {
               <p class="section-label">{{ selectedDateSectionLabel }}</p>
               <h2>{{ selectedDateLabel }}</h2>
             </div>
-            <span class="count-pill">{{ selectedDateTasks.length }}</span>
+            <span class="count-pill">{{ selectedTaskCount }}</span>
           </div>
 
-          <div v-if="selectedDateTasks.length" class="task-list">
+          <div v-if="selectedDateMode === 'nextWeek'" class="week-list selected-range-list">
+            <div
+              v-for="group in selectedRangeGroups"
+              :key="group.date"
+              class="week-day"
+              data-test="selected-range-day-row"
+            >
+              <div class="week-day-header">
+                <strong>{{ group.label }}</strong>
+                <span>{{ formatDate(group.date) }}</span>
+              </div>
+              <div class="week-day-tasks">
+                <article
+                  v-for="task in group.tasks"
+                  :key="task.id"
+                  class="task-card selected-range-task"
+                  :class="taskTone(task)"
+                  draggable="true"
+                  @click="store.selectTask(task.id)"
+                  @dragstart="onDragStart(task)"
+                >
+                  <div class="task-main">
+                    <span class="priority-dot" :class="task.priority"></span>
+                    <strong>{{ task.title }}</strong>
+                  </div>
+                  <div class="task-meta">
+                    <span>{{ statusLabels[task.status] }}</span>
+                    <span v-if="timingLabel(task)">{{ timingLabel(task) }}</span>
+                    <span v-if="task.repeat !== 'none'">{{ repeatLabels[task.repeat] }}</span>
+                  </div>
+                  <button v-if="task.status !== 'done'" class="complete-button" type="button" @click.stop="complete(task)">
+                    完成
+                  </button>
+                </article>
+                <p v-if="!group.tasks.length" class="empty-note">无安排</p>
+              </div>
+            </div>
+          </div>
+
+          <div v-else-if="selectedDateTasks.length" class="task-list">
             <article
               v-for="task in selectedDateTasks"
               :key="task.id"
